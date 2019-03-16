@@ -28,11 +28,11 @@ def proto_path(proto):
         path = path[1:]
     return path
 
-def append_to_outputs(ctx, file_name, js_outputs, dts_outputs, file_modifications):
+def append_to_outputs(ctx, src, file_name, js_outputs, dts_outputs, file_modifications):
     generated_filenames = ["_pb.d.ts", "_pb.js", "_pb_service.js", "_pb_service.d.ts"]
 
     for f in generated_filenames:
-        output = ctx.actions.declare_file(file_name + f)
+        output = ctx.actions.declare_file(file_name + f, sibling=src)
         if f.endswith(".d.ts"):
             dts_outputs.append(output)
         else:
@@ -80,7 +80,7 @@ def typescript_proto_library_aspect_(target, ctx):
         file_name = src.basename[:-len(src.extension) - 1]
         normalized_file = proto_path(src)
         proto_inputs.append(normalized_file)
-        append_to_outputs(ctx, file_name, js_outputs, dts_outputs, file_modifications)
+        append_to_outputs(ctx, src, file_name, js_outputs, dts_outputs, file_modifications)
 
     outputs = dts_outputs + js_outputs
 
@@ -90,7 +90,14 @@ def typescript_proto_library_aspect_(target, ctx):
 
     descriptor_sets_paths = [desc.path for desc in target.proto.transitive_descriptor_sets]
 
-    protoc_output_dir = ctx.var["BINDIR"]
+    parts = ctx.build_file_path.split("/")
+    if len(parts) > 1 and parts[0] == 'external':
+        build_dir = "/" + "/".join(parts[:-1])
+    else:
+        build_dir = ""
+
+    protoc_output_dir = ctx.bin_dir.path + build_dir
+
     protoc_command = "%s" % (ctx.file._protoc.path)
 
     protoc_command += " --plugin=protoc-gen-ts=%s" % (ctx.files._ts_protoc_gen[1].path)
@@ -99,9 +106,11 @@ def typescript_proto_library_aspect_(target, ctx):
     protoc_command += " --descriptor_set_in=%s" % (":".join(descriptor_sets_paths))
     protoc_command += " %s" % (" ".join(proto_inputs))
 
-    amd_module_conversions = _convert_js_files_to_amd_modules(ctx, js_outputs)
+    commands = [protoc_command] + file_modifications
+    if ctx.attr.module == "amd":
+        amd_module_conversions = _convert_js_files_to_amd_modules(ctx, js_outputs)
+        commands = commands + amd_module_conversions
 
-    commands = [protoc_command] + file_modifications + amd_module_conversions
     command = " && ".join(commands)
     ctx.actions.run_shell(
         inputs = inputs,
@@ -131,6 +140,7 @@ typescript_proto_library_aspect = aspect(
     implementation = typescript_proto_library_aspect_,
     attr_aspects = ["deps"],
     attrs = {
+        "module": attr.string(values = ["amd", "commonjs"]),
         "_ts_protoc_gen": attr.label(
             allow_files = True,
             executable = True,
@@ -182,6 +192,11 @@ typescript_proto_library = rule(
             single_file = True,
             providers = ["proto"],
             aspects = [typescript_proto_library_aspect],
+        ),
+        "module": attr.string(
+            default = "amd",
+            values = ["amd", "commonjs"],
+            doc = "Wrap the output js as an amd or leave it as a commonjs module"
         ),
         "_ts_protoc_gen": attr.label(
             allow_files = True,
