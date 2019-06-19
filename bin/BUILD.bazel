@@ -7,7 +7,8 @@ nodejs_binary(
     args = ["--node_options=--expose-gc"],
     data = [
         "//src",
+        "@npm//google-protobuf",
     ],
-    entry_point = "ts_protoc_gen/src/index",
-    node_modules = "@ts_protoc_gen_deps//:node_modules",
+    entry_point = "//src:index.ts",
+    # node_modules = "@ts_protoc_gen_deps//:node_modules",
 )

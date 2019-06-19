@@ -8,8 +8,8 @@ nodejs_binary(
     data = [
         ":convert_to_amd_lib",
     ],
-    entry_point = "ts_protoc_gen/src/bazel/convert_to_amd.js",
-    node_modules = "@ts_protoc_gen_deps//:node_modules",
+    entry_point = ":convert_to_amd.ts",
+    # node_modules = "@ts_protoc_gen_deps//:node_modules",
 )
 
 ts_library(
@@ -17,5 +17,10 @@ ts_library(
     srcs = [
         "convert_to_amd.ts",
     ],
-    node_modules = "@ts_protoc_gen_deps//:node_modules",
+    deps = [
+        "@npm//minimist",
+
+        "@npm//@types",
+    ],
+    # node_modules = "@ts_protoc_gen_deps//:node_modules",
 )

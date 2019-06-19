@@ -86,7 +86,7 @@ def typescript_proto_library_aspect_(target, ctx):
     proto_inputs = []
     file_modifications = []
 
-    inputs = [ctx.file._protoc]
+    inputs = []
     for src in target.proto.direct_sources:
         if src.extension != "proto":
             fail("Input must be a proto file")
@@ -98,11 +98,10 @@ def typescript_proto_library_aspect_(target, ctx):
 
     outputs = dts_outputs + js_protoc_outputs
 
-    inputs += ctx.files._ts_protoc_gen
     inputs += target.proto.direct_sources
     inputs += target.proto.transitive_descriptor_sets.to_list()
 
-    descriptor_sets_paths = [desc.path for desc in target.proto.transitive_descriptor_sets]
+    descriptor_sets_paths = [desc.path for desc in target.proto.transitive_descriptor_sets.to_list()]
 
     parts = ctx.build_file_path.split("/")
     if len(parts) > 1 and parts[0] == 'external':
@@ -122,7 +121,11 @@ def typescript_proto_library_aspect_(target, ctx):
 
     commands = [protoc_command] + file_modifications
     command = " && ".join(commands)
+
+    tools = [ctx.file._protoc] + ctx.files._ts_protoc_gen
+
     ctx.actions.run_shell(
+        tools = tools,
         inputs = depset(inputs),
         outputs = outputs,
         progress_message = "Creating Typescript pb files %s" % ctx.label,
@@ -163,8 +166,8 @@ typescript_proto_library_aspect = aspect(
             default = Label("@ts_protoc_gen//bin:protoc-gen-ts"),
         ),
         "_protoc": attr.label(
-            allow_files = True,
-            single_file = True,
+            # allow_files = True,
+            allow_single_file = True,
             executable = True,
             cfg = "host",
             default = Label("@com_google_protobuf//:protoc"),
@@ -210,8 +213,8 @@ typescript_proto_library = rule(
     attrs = {
         "proto": attr.label(
             mandatory = True,
-            allow_files = True,
-            single_file = True,
+            # allow_files = True,
+            allow_single_file = True,
             providers = ["proto"],
             aspects = [typescript_proto_library_aspect],
         ),
@@ -227,8 +230,8 @@ typescript_proto_library = rule(
             default = Label("@ts_protoc_gen//bin:protoc-gen-ts"),
         ),
         "_protoc": attr.label(
-            allow_files = True,
-            single_file = True,
+            # allow_files = True,
+            allow_single_file = True,
             executable = True,
             cfg = "host",
             default = Label("@com_google_protobuf//:protoc"),

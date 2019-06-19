@@ -9,10 +9,11 @@ ts_library(
         "service/*.ts",
         "ts/*.ts",
     ]),
-    node_modules = "@ts_protoc_gen_deps//:node_modules",
+    # node_modules = "@ts_protoc_gen_deps//:node_modules",
     tsconfig = "@ts_protoc_gen//:tsconfig.json",
     deps = [
-        "@ts_protoc_gen_deps//google-protobuf",
-        "@ts_protoc_gen_deps//@types/google-protobuf",
+        "@npm//google-protobuf",
+        "@npm//@types/google-protobuf",
+        "@npm//@types/node",
     ],
 )
