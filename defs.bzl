@@ -30,7 +30,7 @@ def proto_path(proto):
     return path
 
 def append_to_outputs(ctx, src, file_name, js_outputs, dts_outputs, file_modifications):
-    generated_filenames = ["_pb.d.ts", "_pb.js", "_pb_service.js", "_pb_service.d.ts"]
+    generated_filenames = ["_pb.d.ts", "_pb.js", "_grpc_pb.js", "_grpc_pb.d.ts"]
 
     for f in generated_filenames:
         output = ctx.actions.declare_file(file_name + f, sibling=src)
@@ -115,6 +115,8 @@ def typescript_proto_library_aspect_(target, ctx):
 
     protoc_command += " --plugin=protoc-gen-ts=%s" % (ctx.files._ts_protoc_gen[1].path)
     protoc_command += " --ts_out=service=true:%s" % (protoc_output_dir)
+    protoc_command += " --plugin=protoc-gen-grpc=%s" % (ctx.files._protoc_gen_grpc[1].path)
+    protoc_command += " --grpc_out=%s" % (protoc_output_dir)
     protoc_command += " --js_out=import_style=commonjs,binary:%s" % (protoc_output_dir)
     protoc_command += " --descriptor_set_in=%s" % (":".join(descriptor_sets_paths))
     protoc_command += " %s" % (" ".join(proto_inputs))
@@ -122,7 +124,7 @@ def typescript_proto_library_aspect_(target, ctx):
     commands = [protoc_command] + file_modifications
     command = " && ".join(commands)
 
-    tools = [ctx.file._protoc] + ctx.files._ts_protoc_gen
+    tools = [ctx.file._protoc] + ctx.files._ts_protoc_gen + ctx.files._protoc_gen_grpc
 
     ctx.actions.run_shell(
         tools = tools,
@@ -165,6 +167,12 @@ typescript_proto_library_aspect = aspect(
             cfg = "host",
             default = Label("@ts_protoc_gen//bin:protoc-gen-ts"),
         ),
+        "_protoc_gen_grpc": attr.label(
+            allow_files = True,
+            executable = True,
+            cfg = "host",
+            default = Label("@ts_protoc_gen_deps//grpc-tools/bin:grpc_tools_node_protoc_plugin"),
+        ),
         "_protoc": attr.label(
             # allow_files = True,
             allow_single_file = True,
@@ -190,16 +198,17 @@ def _typescript_proto_library_impl(ctx):
     js_outputs = aspect_data.js_outputs
     outputs = depset(transitive = [js_outputs, dts_outputs])
 
-    js_srcs = depset(transitive = [js_outputs, aspect_data.deps_js])
+    js_transitive_srcs = depset(transitive = [js_outputs, aspect_data.deps_js])
+
     return struct(
         typescript = struct(
             declarations = dts_outputs,
             transitive_declarations = depset(transitive = [dts_outputs, aspect_data.deps_dts]),
             type_blacklisted_declarations = depset([]),
-            es5_sources = js_srcs,
-            es6_sources = js_srcs,
-            transitive_es5_sources = js_srcs,
-            transitive_es6_sources = js_srcs,
+            es5_sources = js_outputs,
+            es6_sources = js_outputs,
+            transitive_es5_sources = js_transitive_srcs,
+            transitive_es6_sources = js_transitive_srcs,
         ),
         legacy_info = struct(
             files = outputs,
@@ -228,6 +237,12 @@ typescript_proto_library = rule(
             executable = True,
             cfg = "host",
             default = Label("@ts_protoc_gen//bin:protoc-gen-ts"),
+        ),
+        "_protoc_gen_grpc": attr.label(
+            allow_files = True,
+            executable = True,
+            cfg = "host",
+            default = Label("@ts_protoc_gen_deps//grpc-tools/bin:grpc_tools_node_protoc_plugin"),
         ),
         "_protoc": attr.label(
             # allow_files = True,

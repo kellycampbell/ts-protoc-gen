@@ -3,7 +3,7 @@ import {ExportMap} from "./ExportMap";
 import {replaceProtoSuffix, withAllStdIn} from "./util";
 import {CodeGeneratorRequest, CodeGeneratorResponse} from "google-protobuf/google/protobuf/compiler/plugin_pb";
 import {FileDescriptorProto} from "google-protobuf/google/protobuf/descriptor_pb";
-import {generateGrpcWebService} from "./service/grpcweb";
+import {generateGrpcNodeService} from "./service/grpcnode";
 
 /**
  * This is the ProtoC compiler plugin.
@@ -40,7 +40,7 @@ withAllStdIn((inputBuff: Buffer) => {
       codeGenResponse.addFile(thisFile);
 
       if (generateServices) {
-        generateGrpcWebService(outputFileName, fileNameToDescriptor[fileName], exportMap)
+        generateGrpcNodeService(outputFileName, fileNameToDescriptor[fileName], exportMap)
           .forEach(file => codeGenResponse.addFile(file));
       }
     });

@@ -29,7 +29,8 @@
   "author": "Improbable",
   "license": "Apache-2.0",
   "dependencies": {
-    "google-protobuf": "^3.6.1"
+    "google-protobuf": "^3.6.1",
+    "grpc-tools": "^1.8.0"
   },
   "devDependencies": {
     "@bazel/karma": "0.32.0",
@@ -41,7 +42,7 @@
     "@types/lodash": "^4.14.106",
     "@types/minimist": "^1.2.0",
     "@types/mocha": "^2.2.46",
-    "@types/node": "^7.0.52",
+    "@types/node": "^11.11.3",
     "babel": "^6.5.2",
     "browser-headers": "^0.4.1",
     "chai": "^3.5.0",
