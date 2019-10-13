@@ -39,6 +39,7 @@ def proto_path(proto):
     path = proto.path
     root = proto.root.path
     ws = proto.owner.workspace_root
+    # print(" path=%s, root=%s, ws=%s" % (path, root, ws))
     if path.startswith(root):
         path = path[len(root):]
     if path.startswith("/"):
@@ -47,15 +48,34 @@ def proto_path(proto):
         path = path[len(ws):]
     if path.startswith("/"):
         path = path[1:]
+
+    # Bazel creates symlinks to the .proto files under a directory called
+    # "_virtual_imports/<rule name>" if we do any sort of munging of import
+    # paths (e.g. using strip_import_prefix / import_prefix attributes)
+    virtual_imports = "_virtual_imports/"
+    if virtual_imports in path:
+        path = path.split(virtual_imports)[1].split("/", 1)[1]
+
     return path
 
-def append_to_outputs(ctx, src, js_outputs, dts_outputs):
+def _append_to_outputs(ctx, src, js_outputs, dts_outputs):
     output_extensions = ["_pb.d.ts", "_pb.js", "_grpc_pb.js", "_grpc_pb.d.ts"]
 
     file_name = src.basename[:-len(src.extension) - 1]
+    output_dir = src.dirname
+    # print("output_dir = %r" % output_dir)
+    virtual_imports = "_virtual_imports/"
+    if virtual_imports in output_dir:
+        output_dir = output_dir.split(virtual_imports)[1].split("/", 1)[1] + '/'
+        sibling = None
+    else:
+        output_dir = ''
+        sibling = src
 
     for ext in output_extensions:
-        output = ctx.actions.declare_file(file_name + ext, sibling=src)
+        output = ctx.actions.declare_file(output_dir + file_name + ext, sibling=sibling)
+        # print("filename = %r, output = %r" % (file_name, output))
+
         if ext.endswith(".d.ts"):
             dts_outputs.append(output)
         else:
@@ -128,6 +148,7 @@ def get_output_dir(ctx, owner):
 
     if parts[0] == "external":
         output_dir = ctx.bin_dir.path + "/" + "/".join(parts[:2])
+        # output_dir = ctx.bin_dir.path 
     else:
         output_dir = ctx.bin_dir.path
 
@@ -150,9 +171,11 @@ def typescript_proto_library_aspect_(target, ctx):
     # print("owner[%r] = %r" % (target, owner))
     inputs = []
     for src in target.proto.direct_sources:
+        # print("direct_source: %r" % src)
         normalized_file = proto_path(src)
+        # print("normal_source: %r" % normalized_file)
         proto_inputs.append(normalized_file)
-        append_to_outputs(ctx, src, js_protoc_outputs, dts_outputs)
+        _append_to_outputs(ctx, src, js_protoc_outputs, dts_outputs)
 
     outputs = dts_outputs + js_protoc_outputs
     # print("outputs = %r" % outputs)
