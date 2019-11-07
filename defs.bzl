@@ -1,8 +1,7 @@
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@build_bazel_rules_nodejs//:defs.bzl", "yarn_install")
 
-TypescriptProtoLibraryAspect = provider(
+TypescriptProtoLibraryInfo = provider(
     fields = {
         "js_outputs": "The JS output files produced directly from the src protos",
         "dts_outputs": "Ths TS definition files produced directly from the src protos",
@@ -18,11 +17,11 @@ def validate_target(target):
     1) Proto files.
     2) From the same package (including workspace)
     """
-    if len(target.proto.direct_sources) == 0:
+    if len(target[ProtoInfo].direct_sources) == 0:
         return target.label
 
-    owner = target.proto.direct_sources[0].owner
-    for src in target.proto.direct_sources:
+    owner = target[ProtoInfo].direct_sources[0].owner
+    for src in target[ProtoInfo].direct_sources:
         if src.extension != "proto":
             fail("Input must be a proto file.")
 
@@ -170,7 +169,7 @@ def typescript_proto_library_aspect_(target, ctx):
     owner = validate_target(target)
     # print("owner[%r] = %r" % (target, owner))
     inputs = []
-    for src in target.proto.direct_sources:
+    for src in target[ProtoInfo].direct_sources:
         # print("direct_source: %r" % src)
         normalized_file = proto_path(src)
         # print("normal_source: %r" % normalized_file)
@@ -181,10 +180,10 @@ def typescript_proto_library_aspect_(target, ctx):
     # print("outputs = %r" % outputs)
     # print()
 
-    inputs += target.proto.direct_sources
-    inputs += target.proto.transitive_descriptor_sets.to_list()
+    inputs += target[ProtoInfo].direct_sources
+    inputs += target[ProtoInfo].transitive_descriptor_sets.to_list()
 
-    descriptor_sets_paths = [desc.path for desc in target.proto.transitive_descriptor_sets.to_list()]
+    descriptor_sets_paths = [desc.path for desc in target[ProtoInfo].transitive_descriptor_sets.to_list()]
 
     protoc_output_dir = get_output_dir(ctx, owner)
     protoc_command = "%s" % (ctx.file._protoc.path)
@@ -219,13 +218,13 @@ def typescript_proto_library_aspect_(target, ctx):
     deps_dts = []
 
     for dep in ctx.rule.attr.deps:
-        aspect_data = dep[TypescriptProtoLibraryAspect]
+        aspect_data = dep[TypescriptProtoLibraryInfo]
         deps_dts.append(aspect_data.dts_outputs)
         deps_dts.append(aspect_data.deps_dts)
         deps_js.append(aspect_data.js_outputs)
         deps_js.append(aspect_data.deps_js)
 
-    return [TypescriptProtoLibraryAspect(
+    return [TypescriptProtoLibraryInfo(
         dts_outputs = dts_outputs,
         js_outputs = js_outputs,
         deps_dts = depset(transitive = deps_dts),
@@ -269,13 +268,14 @@ def _typescript_proto_library_impl(ctx):
     """
     Handles converting the aspect output into a provider compatible with the rules_typescript rules.
     """
-    aspect_data = ctx.attr.proto[TypescriptProtoLibraryAspect]
+    aspect_data = ctx.attr.proto[TypescriptProtoLibraryInfo]
     dts_outputs = aspect_data.dts_outputs
     js_outputs = aspect_data.js_outputs
     outputs = depset(transitive = [js_outputs, dts_outputs])
 
     js_transitive_srcs = depset(transitive = [js_outputs, aspect_data.deps_js])
 
+    # print("providers = %r" % providers)
     return struct(
         typescript = struct(
             declarations = dts_outputs,
@@ -300,7 +300,7 @@ typescript_proto_library = rule(
             mandatory = True,
             # allow_files = True,
             allow_single_file = True,
-            providers = ["proto"],
+            providers = [ProtoInfo],
             aspects = [typescript_proto_library_aspect],
         ),
         "module": attr.string(
